@@ -15,7 +15,6 @@ from DTNRMLibs.MainUtilities import getConfig
 from SiteFE.ProvisioningService import provisioningService as prsS
 
 CONFIG = getConfig(["/etc/dtnrm-site-fe.conf"])
-SWITCH_CONFIG = getConfig(["/etc/dtnrm-site-fe-switches.conf"])
 COMPONENT = 'ProvisioningService'
 LOGGER = getLogger("%s/%s/" % (CONFIG.get('general', 'logDir'), COMPONENT), CONFIG.get(COMPONENT, 'logLevel'))
 
@@ -25,7 +24,7 @@ class MyDaemon(Daemon):
     """ My own Deamon override """
     def run(self):
         """ Run main execution """
-        provisioner = prsS.ProvisioningService(config=CONFIG, switchConfig=SWITCH_CONFIG, logger=LOGGER, args=None)
+        provisioner = prsS.ProvisioningService(config=CONFIG, logger=LOGGER, args=None)
         while True:
             try:
                 time.sleep(20)

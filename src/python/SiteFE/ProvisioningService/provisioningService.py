@@ -30,12 +30,13 @@ from DTNRMLibs.MainUtilities import getDataFromSiteFE
 from DTNRMLibs.CustomExceptions import FailedInterfaceCommand
 
 class ProvisioningService(object):
-    def __init__(self, config, switchConfig, logger, args):
+    """ Provisioning service communicates with Local controllers and applies network changes. """
+    def __init__(self, config, logger, args):
         self.logger = logger
         self.config = config
-        self.switchConfig = switchConfig
         self.args = args
         self.siteDB = contentDB(logger=self.logger, config=self.config)
+        self.sitename = None
 
     def pushInternalAction(self, url, state, deltaID, hostname):
         """ Push Internal action and return dict """
@@ -43,7 +44,8 @@ class ProvisioningService(object):
         restOut = {}
         restOut = getDataFromSiteFE({}, url, "/sitefe/v1/deltas/%s/internalaction/%s/%s" % (deltaID, hostname, state))
         if restOut[1] >= 400:
-            msg = "Failed to set new state in database for %s delta and %s hostname. Error %s " % (deltaID, hostname, restOut)
+            msg = "Failed to set new state in database for %s delta and %s hostname. Error %s " \
+                  % (deltaID, hostname, restOut)
             self.logger.debug(msg)
             raise FailedInterfaceCommand(msg)
         restOutHIDs = getDataFromSiteFE({}, url, "/sitefe/v1/hostnameids/%s" % hostname)
@@ -55,19 +57,17 @@ class ProvisioningService(object):
             time.sleep(4)
         return evaldict(restOut)
 
-
-
     def deltaRemoval(self, newDelta, deltaID, newvlan, switchName, switchruler, fullURL):
         """ Here goes all communication with component and also rest interface """
-        print 'Here goes all communication with component and also rest interface'
-        print 'I got REDUCTION!!!!!. Reduction only sets states until active.'
+        self.logger.debug('I got REDUCTION!!!!!. Reduction only sets states until active.')
         if 'ReductionID' not in newDelta:
             # I dont know which one to set to removed...
             # Will apply only rules for reduction.
             self.pushInternalAction(fullURL, "remove", newDelta['ReductionID'], switchName)
         deltaState = newDelta['HOSTSTATE']
         for stateChange in [{"accepting": "accepted"}, {"accepted": "committing"},
-                            {"committing": "committed"}, {"committed": "activating"}, {"activating": "active"}, {"active": "remove"}, {"cancel": "remove"}]:
+                            {"committing": "committed"}, {"committed": "activating"},
+                            {"activating": "active"}, {"active": "remove"}, {"cancel": "remove"}]:
             if deltaState == stateChange.keys()[0]:
                 msg = 'Delta State %s and performing action to %s' % (deltaState, stateChange[deltaState])
                 self.logger.debug(msg)
@@ -92,6 +92,7 @@ class ProvisioningService(object):
 
     def getnewvlan(self, newDelta, deltaID, switchHostName, inKey):
         """ Check all keys in vlan requimenet and return correct out for addition or deletion """
+        self.logger.debug('Delta id %s' % deltaID)
         self.logger.debug('Got Parsed Delta %s' % newDelta['ParsedDelta'])
         if inKey in newDelta['ParsedDelta'] and newDelta['ParsedDelta'][inKey]:
             return newDelta['ParsedDelta'][inKey][switchHostName]
@@ -134,8 +135,8 @@ class ProvisioningService(object):
         """ Get All Aliases """
         switches = self.getAllSwitches()
         out = []
-        for switchName, switchPort in switches['vlans'].items():
-            for portName, portDict in switchPort.items():
+        for _switchName, switchPort in switches['vlans'].items():
+            for _portName, portDict in switchPort.items():
                 if 'isAlias' in portDict:
                     tmp = portDict['isAlias'].split(':')[-3:]
                     out.append(tmp[0])
@@ -143,15 +144,23 @@ class ProvisioningService(object):
 
     def startwork(self):
         """Main start """
-        fullURL = getFullUrl(self.config)
+        for siteName in self.config.get('general', 'sites').split(','):
+            workDir = self.config.get(siteName, 'privatedir') + "/ProvisioningService/"
+            createDirs(workDir)
+            self.sitename = siteName
+            self.logger.info('Working on Site %s' % self.sitename)
+            self.startworkmain()
+
+    def startworkmain(self):
+        fullURL = getFullUrl(self.config, sitename=self.sitename)
         jOut = self.getData(fullURL, "/sitefe/json/frontend/getdata")
-        workDir = self.config.get('frontend', 'privatedir') + "/ProvisioningService/"
+        workDir = self.config.get('general', 'privatedir') + "/ProvisioningService/"
         createDirs(workDir)
         if not jOut:
             self.logger.info('Seems server returned empty dictionary. Exiting.')
             return
         # Get switch information...
-        switchPlugin = self.switchConfig.get('general', 'plugin')
+        switchPlugin = self.config.get(self.sitename, 'plugin')
         self.logger.info('Will load %s switch plugin' % switchPlugin)
         method = importlib.import_module("SiteFE.ProvisioningService.Plugins.%s" % switchPlugin.lower())
         switchruler = method.mainCaller()
@@ -180,16 +189,14 @@ class ProvisioningService(object):
                         raise Exception('Received IOError')
 
 
-def execute(config=None, switchConfig=None, logger=None, args=None):
+def execute(config=None, logger=None, args=None):
     """Main Execute"""
     if not config:
         config = getConfig(["/etc/dtnrm-site-fe.conf"])
-    if not switchConfig:
-        switchConfig = getConfig(["/etc/dtnrm-site-fe-switches.conf"])
     if not logger:
         component = 'LookUpService'
         logger = getLogger("%s/%s/" % (config.get('general', 'logDir'), component), config.get(component, 'logLevel'))
-    provisioner = ProvisioningService(config, switchConfig, logger, args)
+    provisioner = ProvisioningService(config, logger, args)
     provisioner.startwork()
 
 if __name__ == '__main__':
