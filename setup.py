@@ -51,7 +51,7 @@ createDirs(RAWCONFIGS)
 SCRIPTS = ['packaging/dtnrm-site-fe/centos7/ContinuousLoop-update']
 for sectionName in CONFIG.sections():
     print sectionName
-    if sectionName in ['LookUpService', 'PolicyService']:
+    if sectionName in ['LookUpService', 'PolicyService', 'ProvisioningService']:
         SCRIPTS.append('packaging/dtnrm-site-fe/centos7/%s-update' % sectionName)
 
 setup(
