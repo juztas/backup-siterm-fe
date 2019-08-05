@@ -27,7 +27,7 @@ class MyDaemon(Daemon):
                 time.sleep(20)
 
 if __name__ == "__main__":
-    DAEMON = MyDaemon('/data/config/DTNRMFE/dtnrm-NotificationService.pid')
+    DAEMON = MyDaemon('/tmp/dtnrm-NotificationService.pid')
     if len(sys.argv) == 2:
         DAEMON.command(sys.argv[1], sys.argv[0])
     else:

@@ -50,7 +50,7 @@ class MyDaemon(Daemon):
                     LOGGER.critical("Error details. ErrorType: %s, ErrMsg: %s" % (str(excType.__name__), excValue))
 
 if __name__ == "__main__":
-    DAEMON = MyDaemon('/data/config/DTNRMFE/dtnrm-continuousloop.pid')
+    DAEMON = MyDaemon('/tmp/dtnrm-continuousloop.pid')
     if len(sys.argv) == 2:
         DAEMON.command(sys.argv[1], sys.argv[0])
     else:
