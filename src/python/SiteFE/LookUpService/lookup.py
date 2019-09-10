@@ -248,6 +248,9 @@ class LookUpService(object):
         self.newGraph.add((self.prefixDB.genUriRef('site', ':service+vsw'),
                            self.prefixDB.genUriRef('rdf', 'type'),
                            self.prefixDB.genUriRef('nml', 'SwitchingService')))
+        self.newGraph.add((self.prefixDB.genUriRef('site', ':service+rst'),
+                           self.prefixDB.genUriRef('rdf', 'type'),
+                           self.prefixDB.genUriRef('mrs', 'RoutingService')))
         # Add lableSwapping flag
         labelswap = "false"
         try:
@@ -279,6 +282,7 @@ class LookUpService(object):
                                self.prefixDB.genUriRef('nml', 'insertTime'),
                                self.prefixDB.genLiteral(nodeDict['insertdate'])))
             # Provide location information about site Frontend
+            hostinfo = evaldict(nodeDict['hostinfo'])
             try:
                 lat = self.config.get(self.sitename, 'latitude')
                 lon = self.config.get(self.sitename, 'longitude')
@@ -290,9 +294,83 @@ class LookUpService(object):
                                    self.prefixDB.genLiteral(lon)))
             except ConfigParser.NoOptionError:
                 self.logger.debug('Either one or both (latitude,longitude) are not defined. Continuing as normal')
+            # Define Routing Service information
+            for tablegress in['table+defaultIngress', 'table+defaultEgress']:
+                routingtable = ":%s:%s" % (nodeDict['hostname'], tablegress)
+                self.newGraph.add((self.prefixDB.genUriRef('site', ':service+rst'),
+                                   self.prefixDB.genUriRef('mrs', 'providesRoutingTable'),
+                                   self.prefixDB.genUriRef('mrs', routingtable)))
+                for routeinfo in hostinfo['NetInfo']["routes"]:
+                    routename = ""
+                    if 'RTA_GATEWAY' in routeinfo.keys():
+                        routename = routingtable + ":route+default"
+                    else:
+                        routename = routingtable + ":route+%s_%s" % (routeinfo['RTA_PREFSRC'], routeinfo['dst_len'])
+                    self.newGraph.add((self.prefixDB.genUriRef('site', routingtable),
+                                       self.prefixDB.genUriRef('mrs', 'hasRoute'),
+                                       self.prefixDB.genUriRef('site', routename)))
+                    for k in ['routeTo', 'nextHop']:
+                        self.newGraph.add((self.prefixDB.genUriRef('site', routename),
+                                           self.prefixDB.genUriRef('mrs', 'Route'),
+                                           self.prefixDB.genUriRef('mrs', k)))
+                    if 'RTA_GATEWAY' in routeinfo.keys():
+                        self.newGraph.add((self.prefixDB.genUriRef('site', routename),
+                                           self.prefixDB.genUriRef('mrs', 'routeTo'),
+                                           self.prefixDB.genUriRef('mrs', '%s:%s' % (routename, 'to'))))
+                        self.newGraph.add((self.prefixDB.genUriRef('site', routename),
+                                           self.prefixDB.genUriRef('mrs', 'nextHop'),
+                                           self.prefixDB.genUriRef('mrs', '%s:%s' % (routename, 'black-hole'))))
+                        for vals in [['to', 'ipv4-prefix-list', '0.0.0.0/0'], ['black-hole', 'routing-policy', 'drop']]:
+                            self.addToGraph(['site', '%s:%s' % (routename, vals[0])],
+                                            ['rdf', 'type'],
+                                            ['mrs', 'NetworkAddress'])
+                            self.addToGraph(['site', '%s:%s' % (routename, vals[0])],
+                                            ['mrs', 'type'],
+                                           [vals[1]])
+                            self.addToGraph(['site', '%s:%s' % (routename, vals[0])],
+                                            ['mrs', 'value'],
+                                            [vals[2]])
+                    else:
+                        defaultroutename = routingtable + ":route+default:local"
+                        self.newGraph.add((self.prefixDB.genUriRef('site', routename),
+                                           self.prefixDB.genUriRef('mrs', 'routeTo'),
+                                           self.prefixDB.genUriRef('mrs', '%s:%s' % (routename, 'to'))))
+                        self.newGraph.add((self.prefixDB.genUriRef('site', routename),
+                                           self.prefixDB.genUriRef('mrs', 'nextHop'),
+                                           self.prefixDB.genUriRef('mrs', defaultroutename)))
+                        self.addToGraph(['site', '%s:%s' % (routename, 'to')],
+                                        ['rdf', 'type'],
+                                        ['mrs', 'NetworkAddress'])
+                        self.addToGraph(['site', '%s:%s' % (routename, 'to')],
+                                        ['mrs', 'type'],
+                                        ['ipv4-prefix-list'])
+                        self.addToGraph(['site', '%s:%s' % (routename, 'to')],
+                                        ['mrs', 'value'],
+                                        ['%s/%s' % (routeinfo['RTA_DST'], routeinfo['dst_len'])])
+
+#<urn:ogf:network:nersc.gov:2013:dtn-demo.nersc.gov:routingService:table+defaultIngress:route+default:to>
+#   a mrs:NetworkAddress ;
+#   mrs:type "ipv4-prefix-list" ;
+#   mrs:value "0.0.0.0/0" .
+#
+#<urn:ogf:network:nersc.gov:2013:dtn-demo.nersc.gov:routingService:table+defaultIngress:route+default:black-hole>
+#   a mrs:NetworkAddress ;
+#   mrs:type "routing-policy" ;
+#   mrs:value "drop" .
+
+                    # default route TODO how to defined on OS blackhole?
+
+            print hostinfo['NetInfo']["routes"]
+            for routeinfo in hostinfo['NetInfo']["routes"]:
+                for tablegress in['table+defaultIngress', 'table+defaultEgress']:
+                    self.newGraph.add((self.prefixDB.genUriRef('site', ":%s:%s" % (nodeDict['hostname'], tablegress)),
+                                       self.prefixDB.genUriRef('mrs', 'RoutingService'),
+                                       self.prefixDB.genUriRef('site', ":%s:%s" % (nodeDict['hostname'], tablegress))))
+                    #self.prefixDB.genUriRef('site', ":%s:%s" % (nodeDict['hostname'], tablegress))))
+                    print routeinfo
+# CONTINUE HERE!!!
             # Add network interfaces for that specific node
-            hostinfo = evaldict(nodeDict['hostinfo'])
-            for intfKey, intfDict in hostinfo['NetInfo'].items():
+            for intfKey, intfDict in hostinfo['NetInfo']["interfaces"].items():
                 # We exclude QoS interfaces from adding them to MRML.
                 # Even so, I still want to have this inside DB for debugging purposes
                 if intfKey.endswith('-ifb'):

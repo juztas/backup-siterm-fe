@@ -64,7 +64,7 @@ def getinfo(config, logger, nodesInfo=None, site=None):
         output['switches'][switch][port] = config.get(site, 'port%shostname' % port)
     for nodename, nodeDict in nodesInfo.items():
         hostinfo = evaldict(nodeDict['hostinfo'])
-        for intfKey, intfDict in hostinfo['NetInfo'].items():
+        for intfKey, intfDict in hostinfo['NetInfo']["interfaces"].items():
             print intfKey, intfDict
             breakLoop = False
             for key in ['switch_port', 'switch', 'vlan_range', 'available_bandwidth']:

@@ -127,14 +127,11 @@ class ProvisioningService(object):
             return {}
         return evaldict(agents[0])
 
-    def getAllSwitches(self):
-        """ Get switches content """
-        return self.siteDB.getFileContentAsJson(self.config.get('frontend', 'privatedir') + "/knownSwitches.json")
-
-    def getAllAliases(self):
+    def getAllAliases(self, switches):
         """ Get All Aliases """
-        switches = self.getAllSwitches()
         out = []
+        if not switches:
+            return out
         for _switchName, switchPort in switches['vlans'].items():
             for _portName, portDict in switchPort.items():
                 if 'isAlias' in portDict:
@@ -164,8 +161,9 @@ class ProvisioningService(object):
         self.logger.info('Will load %s switch plugin' % switchPlugin)
         method = importlib.import_module("SiteFE.ProvisioningService.Plugins.%s" % switchPlugin.lower())
         switchruler = method.mainCaller()
-        switches = self.getAllSwitches()
-        alliases = self.getAllAliases()
+        topology = method.topology()
+        switches = topology.getTopology()
+        alliases = self.getAllAliases(switches)
         outputDict = {}
         allDeltas = self.getData(fullURL, "/sitefe/v1/deltas?oldview=true")
         for switchName in list(switches['switches'].keys() + alliases):

@@ -84,3 +84,11 @@ class mainCaller(object):
     def remove(self, inputDict, actionState):
         """ Remove state actions """
         return True
+
+
+class topology(object):
+    def __init__(self):
+        self.name = 'RAW'
+
+    def getTopology(self):
+        return {}
