@@ -91,4 +91,4 @@ class topology(object):
         self.name = 'RAW'
 
     def getTopology(self):
-        return {}
+        return {'switches': {}, 'vlans': {}}

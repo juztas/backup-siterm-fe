@@ -41,9 +41,12 @@ def getinfo(config, logger, nodesInfo=None, site=None):
     # Each plugin has it's own definition how to represent and return information;
     # All of them should return all ports, switch names and also nodes to which they are connected;
     output = {'switches': {}, 'vlans': {}}
+    if not nodesInfo:
+        logger.warning('This FE does not have any nodes defined.')
+        nodesInfo = {}
     if not config.has_section(site):
         logger.info('SiteName %s is not defined' % site)
-        return {}
+        return output
     logger.info('Looking for switch config for %s site' % site)
     # These config parameters are mandatory. In case not available, return empty list
     for key in ['plugin', 'ports', 'switch']:
@@ -83,6 +86,9 @@ def getinfo(config, logger, nodesInfo=None, site=None):
                 output['vlans'][intfDict['switch']][intfDict['switch_port']]['desttype'] = 'server'
                 output['vlans'][intfDict['switch']][intfDict['switch_port']]['vlan_range'] = intfDict['vlan_range']
                 output['vlans'][intfDict['switch']][intfDict['switch_port']]['capacity'] = intfDict['available_bandwidth']
+    if config.has_option(site, "l3_routing_map"):
+        routingMap = config.get(site, "l3_routing_map")
+        output['l3_routing'] = evaldict(routingMap)
     print output
     return output
 
