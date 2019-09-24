@@ -202,6 +202,7 @@ def models(environ, **kwargs):
         kwargs['http_respond'].ret_500('application/json', kwargs['start_response'], None)
         print 'LastModel does not exist in dictionary. First time run? See documentation'
         return getCustomOutMsg(errMsg="No models are available...", errCode=500)
+    outmodels = [outmodels] if isinstance(outmodels, dict) else outmodels
     outM = {"models": []}
     current = {"id": outmodels[0]['uid'],
                "creationTime": convertTSToDatetime(outmodels[0]['insertdate']),
@@ -227,7 +228,7 @@ def models(environ, **kwargs):
                        "creationTime": convertTSToDatetime(model['insertdate']),
                        "href": "%s/%s" % (environ['SCRIPT_URI'], model['uid'])}
             if not kwargs['urlParams']['summary']:
-                tmpDict['model'] = encodebase64(DELTABACKEND.getmodel(model['uid'], content=True), kwargs['urlParams']['encode'], **kwargs)
+                tmpDict['model'] = encodebase64(DELTABACKEND.getmodel(model['uid'], content=True, **kwargs), kwargs['urlParams']['encode'])
             outM['models'].append(tmpDict)
         print 'Returning all models known to the system. Return 200'
         return outM['models']
@@ -246,17 +247,18 @@ def models_id(environ, **kwargs):
     modTime = getModTime(kwargs['headers'])
     modelID = kwargs['mReg'].groups()[0]
     outmodels = DELTABACKEND.getmodel(modelID, **kwargs)
-    if modTime > outmodels[0]['insertdate']:
+    model = outmodels if isinstance(outmodels, dict) else outmodels[0]
+    if modTime > model['insertdate']:
         print 'Model with ID %s was not updated so far. Time request comparison requested' % modelID
-        kwargs['http_respond'].ret_304('application/json', kwargs['start_response'], ('Last-Modified', httpdate(outmodels[0]['insertdate'])))
+        kwargs['http_respond'].ret_304('application/json', kwargs['start_response'], ('Last-Modified', httpdate(model['insertdate'])))
         return []
-    current = {"id": outmodels[0]['uid'],
-               "creationTime": convertTSToDatetime(outmodels[0]['insertdate']),
-               "href": "%s/%s" % (environ['SCRIPT_URI'], outmodels['uid'])}
+    current = {"id": model['uid'],
+               "creationTime": convertTSToDatetime(model['insertdate']),
+               "href": "%s/%s" % (environ['SCRIPT_URI'], model['uid'])}
     if not kwargs['urlParams']['summary']:
-        current['model'] = encodebase64(DELTABACKEND.getmodel(outmodels[0]['uid'], content=True), kwargs['urlParams']['encode'], **kwargs)
+        current['model'] = encodebase64(DELTABACKEND.getmodel(model['uid'], content=True, **kwargs), kwargs['urlParams']['encode'])
     print 'Requested a specific model with id %s' % modelID
-    kwargs['http_respond'].ret_200('application/json', kwargs['start_response'], [('Last-Modified', httpdate(outmodels[0]['insertdate']))])
+    kwargs['http_respond'].ret_200('application/json', kwargs['start_response'], [('Last-Modified', httpdate(model['insertdate']))])
     return current
     # Deltas are not associated with model. Not clear use case. If deltas is there Return all deltas.
 

@@ -62,8 +62,9 @@ def getinfo(config, logger, nodesInfo=None, site=None):
         for key in ['hostname', 'isAlias', 'vlan_range', 'capacity', 'desttype', 'destport']:
             if not config.has_option(site, "port%s%s" % (port, key)):
                 logger.info('Option %s is not defined for Port.' % key)
-                return {}
-            output['vlans'][switch][port][key] = config.get(site, "port%s%s" % (port, key))
+                output['vlans'][switch][port][key] = 'UNDEFINED'
+            else:
+                output['vlans'][switch][port][key] = config.get(site, "port%s%s" % (port, key))
         output['switches'][switch][port] = config.get(site, 'port%shostname' % port)
     for nodename, nodeDict in nodesInfo.items():
         hostinfo = evaldict(nodeDict['hostinfo'])
