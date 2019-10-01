@@ -30,7 +30,7 @@ from setupUtilities import createAllDirsFromConfig
 
 CONFIG = None
 CONFIG_LOCATION = []
-for configName in ['dtnrm-site-fe.conf', 'dtnrm-site-fe-switches.conf']:
+for configName in ['dtnrm-site-fe.conf', 'dtnrm-site-fe-switches.conf', 'dtnrm-auth.conf']:
     if os.path.isfile('/etc/%s' % configName):
         CONFIG_LOCATION.append('/etc/%s' % configName)
     else:

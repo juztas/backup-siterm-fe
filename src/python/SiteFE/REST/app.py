@@ -43,6 +43,7 @@ import json
 import importlib
 from SiteFE.REST.FEApis import FrontendRM
 import SiteFE.REST.AppCalls as AllCalls
+from DTNRMLibs.x509 import CertHandler
 from DTNRMLibs.RESTInteractions import getContent
 from DTNRMLibs.RESTInteractions import get_match_regex
 from DTNRMLibs.MainUtilities import getConfig
@@ -158,7 +159,15 @@ def application(environ, start_response):
     # HTTP responses var
     _HTTP_RESPOND = HTTPResponses()
     check_initialized(environ)
-
+    certHandler = CertHandler()
+    permissions = {}
+    print 'Environment information: %s ' % environ
+    try:
+        environ['CERTINFO'] = certHandler.getCertInfo(environ)
+        permissions = certHandler.validateCertificate(environ)
+    except Exception as ex:
+        _HTTP_RESPOND.ret_401('application/json', start_response, None)
+        return [json.dumps(getCustomOutMsg(errMsg=ex.__str__(), errCode=401))]
     path = environ.get('PATH_INFO', '').lstrip('/')
     sitename = environ.get('REQUEST_URI', '').split('/')[1]  # TODO. DO Check for SiteName in conf
     for regex, callback, methods, params, acceptheader in URLS:
